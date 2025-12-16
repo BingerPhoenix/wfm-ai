@@ -1,0 +1,126 @@
+{
+  "agentCosts": {
+    "average": 52000,
+    "range": {
+      "min": 45000,
+      "max": 65000
+    },
+    "byTenure": [
+      {
+        "years": "0-1",
+        "avgSalary": 45000,
+        "count": 28
+      },
+      {
+        "years": "1-3",
+        "avgSalary": 50000,
+        "count": 35
+      },
+      {
+        "years": "3-5",
+        "avgSalary": 56000,
+        "count": 20
+      },
+      {
+        "years": "5+",
+        "avgSalary": 62000,
+        "count": 11
+      }
+    ],
+    "benefits": 0.32,
+    "overtimeRate": 1.5
+  },
+  "aiCosts": {
+    "perContact": 0.12,
+    "monthlyTrend": [
+      {
+        "month": "2024-01",
+        "perContact": 0.15,
+        "totalCost": 4050
+      },
+      {
+        "month": "2024-03",
+        "perContact": 0.13,
+        "totalCost": 4225
+      },
+      {
+        "month": "2024-06",
+        "perContact": 0.12,
+        "totalCost": 4680
+      },
+      {
+        "month": "2024-08",
+        "perContact": 0.1,
+        "totalCost": 5120
+      },
+      {
+        "month": "2024-12",
+        "perContact": 0.08,
+        "totalCost": 6240
+      }
+    ],
+    "infrastructure": 2500,
+    "trainingCostPerAgent": 2500
+  },
+  "benchmarks": {
+    "byIndustry": {
+      "insurance": {
+        "deflectionRate": 0.22,
+        "avgSLA": 0.78,
+        "agentCost": 54000
+      },
+      "telecom": {
+        "deflectionRate": 0.28,
+        "avgSLA": 0.82,
+        "agentCost": 48000
+      },
+      "retail": {
+        "deflectionRate": 0.35,
+        "avgSLA": 0.85,
+        "agentCost": 46000
+      },
+      "tech": {
+        "deflectionRate": 0.42,
+        "avgSLA": 0.88,
+        "agentCost": 65000
+      }
+    },
+    "byRegion": {
+      "toronto": {
+        "agentCost": 54000,
+        "benefits": 0.35
+      },
+      "usAverage": {
+        "agentCost": 48000,
+        "benefits": 0.3
+      },
+      "philippines": {
+        "agentCost": 18000,
+        "benefits": 0.15
+      }
+    },
+    "handleTime": {
+      "industry": 5.5,
+      "ourCenter": 6.0,
+      "target": 5.0
+    }
+  },
+  "projections": {
+    "deflectionGrowth": 0.02,
+    "costPerAgent": 68500,
+    "potentialSavings": {
+      "30%": {
+        "agentReduction": 8,
+        "annualSavings": 548000
+      },
+      "35%": {
+        "agentReduction": 12,
+        "annualSavings": 822000
+      },
+      "40%": {
+        "agentReduction": 16,
+        "annualSavings": 1096000
+      }
+    }
+  }
+}

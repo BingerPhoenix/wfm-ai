@@ -1,0 +1,134 @@
+[
+  {
+    "month": "2024-01",
+    "overallRate": 0.173,
+    "byType": {
+      "billing": 0.25,
+      "technical": 0.12,
+      "general": 0.2,
+      "sales": 0.08
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-02",
+    "overallRate": 0.195,
+    "byType": {
+      "billing": 0.262,
+      "technical": 0.125,
+      "general": 0.225,
+      "sales": 0.084
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-03",
+    "overallRate": 0.184,
+    "byType": {
+      "billing": 0.274,
+      "technical": 0.131,
+      "general": 0.251,
+      "sales": 0.087
+    },
+    "botUpdates": "Billing Bot v2 launched - improved invoice queries"
+  },
+  {
+    "month": "2024-04",
+    "overallRate": 0.211,
+    "byType": {
+      "billing": 0.285,
+      "technical": 0.136,
+      "general": 0.276,
+      "sales": 0.091
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-05",
+    "overallRate": 0.219,
+    "byType": {
+      "billing": 0.297,
+      "technical": 0.142,
+      "general": 0.302,
+      "sales": 0.095
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-06",
+    "overallRate": 0.225,
+    "byType": {
+      "billing": 0.309,
+      "technical": 0.147,
+      "general": 0.327,
+      "sales": 0.098
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-07",
+    "overallRate": 0.219,
+    "byType": {
+      "billing": 0.321,
+      "technical": 0.153,
+      "general": 0.353,
+      "sales": 0.102
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-08",
+    "overallRate": 0.24,
+    "byType": {
+      "billing": 0.333,
+      "technical": 0.158,
+      "general": 0.378,
+      "sales": 0.105
+    },
+    "botUpdates": "FAQ expansion - 200+ new self-service topics"
+  },
+  {
+    "month": "2024-09",
+    "overallRate": 0.234,
+    "byType": {
+      "billing": 0.345,
+      "technical": 0.164,
+      "general": 0.404,
+      "sales": 0.109
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-10",
+    "overallRate": 0.075,
+    "byType": {
+      "billing": 0.356,
+      "technical": 0.169,
+      "general": 0.429,
+      "sales": 0.113
+    },
+    "botUpdates": "System incident on Oct 10 - bot performance restored"
+  },
+  {
+    "month": "2024-11",
+    "overallRate": 0.272,
+    "byType": {
+      "billing": 0.368,
+      "technical": 0.175,
+      "general": 0.455,
+      "sales": 0.116
+    },
+    "botUpdates": null
+  },
+  {
+    "month": "2024-12",
+    "overallRate": 0.278,
+    "byType": {
+      "billing": 0.38,
+      "technical": 0.18,
+      "general": 0.48,
+      "sales": 0.12
+    },
+    "botUpdates": null
+  }
+]

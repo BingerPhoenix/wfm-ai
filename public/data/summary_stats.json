@@ -1,0 +1,36 @@
+{
+  "totalContacts": 655511,
+  "avgWeeklyVolume": 12605,
+  "peakDay": {
+    "date": "2024-06-04",
+    "volume": 6747
+  },
+  "lowestDay": {
+    "date": "2024-12-26",
+    "volume": 612
+  },
+  "deflectionImprovement": "+60.7%",
+  "avgSLA": 0.728,
+  "slaVariance": 0.078,
+  "contactMix": {
+    "calls": "58%",
+    "chats": "32%",
+    "emails": "10%"
+  },
+  "keyMetrics": {
+    "totalFTEs": 94,
+    "avgHandleTime": 6.0,
+    "annualAgentCost": 4916000,
+    "deflectionSavings": 892000
+  },
+  "dataQuality": {
+    "recordCount": 4758,
+    "dateRange": "2024-01-01 to 2024-12-31",
+    "anomaliesIncluded": [
+      "2024-03-15 outage",
+      "2024-06-03 viral incident",
+      "2024-09-01 campaign",
+      "2024-10-10 bot failure"
+    ]
+  }
+}
