@@ -92,10 +92,13 @@ npm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` and add your Anthropic API key:
+Edit `.env.local` with your actual API key:
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
+VITE_API_URL=http://localhost:3000  # Optional: for custom API endpoint
 ```
+
+> **⚠️ Important**: Never use `VITE_ANTHROPIC_API_KEY` - this would expose your secret to clients!
 
 4. **Start development server**
 ```bash
@@ -186,11 +189,31 @@ npm run build
 | `VITE_ENV` | Environment mode (development/production) | No | Client-side |
 | `NODE_ENV` | Node environment for build optimization | No | Build process |
 
+### **Deployment Configuration**
+
+#### **Local Development**
+```bash
+# Create .env.local (git-ignored)
+cp .env.example .env.local
+
+# Edit .env.local with your actual API key
+ANTHROPIC_API_KEY=sk-ant-your-actual-key-here
+VITE_API_URL=http://localhost:3000  # Optional for local testing
+```
+
+#### **Vercel Production**
+1. **Go to**: https://vercel.com/dashboard → Your Project → Settings → Environment Variables
+2. **Add**:
+   - **Name**: `ANTHROPIC_API_KEY`
+   - **Value**: Your actual Anthropic API key
+   - **Environment**: Production (and Preview if needed)
+3. **Redeploy** to apply changes
+
 ### **Security Best Practices**
-- ✅ **Never expose `ANTHROPIC_API_KEY` in client-side code**
-- ✅ **Use `.env.local` for local development** (git-ignored)
-- ✅ **Set server-side variables in Vercel Dashboard**
-- ✅ **All API calls proxy through serverless functions**
+- ✅ **Never use `VITE_` prefix for secrets** (client-side exposed)
+- ✅ **Server-side only**: `process.env.ANTHROPIC_API_KEY`
+- ✅ **Client-side safe**: `import.meta.env.VITE_API_URL`
+- ✅ **All API calls proxy through `/api/chat` endpoint**
 
 ## 🏗️ **Project Architecture**
 

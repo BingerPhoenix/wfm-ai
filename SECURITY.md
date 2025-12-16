@@ -105,12 +105,17 @@ const unsafeQuery = `SELECT * FROM users WHERE id = ${userId}`;
 
 ### **Environment Variables**
 ```bash
-# ✅ Good: Server-side only
+# ✅ Correct: Server-side only (for api/chat.ts)
 ANTHROPIC_API_KEY=your_key_here
 
-# ❌ Avoid: Client-side exposure
-VITE_ANTHROPIC_API_KEY=your_key_here
+# ✅ Safe: Client-side configuration (no secrets)
+VITE_API_URL=https://your-domain.com
+
+# ❌ NEVER: Client-side secrets (exposed in browser)
+VITE_ANTHROPIC_API_KEY=your_key_here  # This would leak your API key!
 ```
+
+**Key Principle**: Any variable prefixed with `VITE_` is included in the client bundle and visible to users. Never use `VITE_` for API keys or secrets.
 
 ### **API Endpoint Security**
 ```typescript
