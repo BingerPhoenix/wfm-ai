@@ -135,7 +135,7 @@ export class WfmApi {
   private baseUrl: string;
 
   constructor(baseUrl: string = '') {
-    // Use environment variable or default to relative path
+    // Use environment variable or default to relative path for production
     this.baseUrl = import.meta.env.VITE_API_URL || baseUrl || '';
   }
 
@@ -150,20 +150,25 @@ export class WfmApi {
       // Enhanced prompt with user context (server will add rich data context)
       const fullPrompt = `${contextPrompt}\n\nUser Query: ${userMessage}`;
 
-      // Call server-side API route (enhanced system prompt built server-side)
-      const response = await fetch(`${this.baseUrl}/api/chat`, {
+      const apiUrl = `${this.baseUrl}/api/chat`;
+      console.log("Sending request to:", apiUrl, "method: POST");
+      console.log("Base URL:", this.baseUrl);
+      console.log("Full URL resolved to:", apiUrl);
+
+      // Call minimal API endpoint for testing
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [{
-            role: 'user',
-            content: fullPrompt
-          }]
-          // system prompt now built server-side with rich data
+          message: userMessage,
+          context: context
         })
       });
+
+      console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -172,21 +177,15 @@ export class WfmApi {
 
       const data = await response.json();
 
-      // Try to parse JSON response from Claude
-      let parsedResponse: ChatResponse;
-      try {
-        parsedResponse = JSON.parse(data.content);
-      } catch {
-        // Fallback if response isn't valid JSON
-        parsedResponse = {
-          answer: data.content,
-          chartUpdate: 'none'
-        };
-      }
+      // For now, return a test response using the API data
+      const testResponse: ChatResponse = {
+        answer: `API Test Response: ${data.message || 'API is working'}\n\nReceived: ${userMessage}`,
+        chartUpdate: 'none'
+      };
 
       return {
         success: true,
-        data: parsedResponse
+        data: testResponse
       };
 
     } catch (error) {
