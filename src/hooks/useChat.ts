@@ -111,10 +111,13 @@ What would you like to analyze? Ask about coverage gaps, forecasting accuracy, o
       const currentState = buildForecastState();
 
       // Call Claude API
+      console.log('Calling API with content:', content);
       const response = await callClaudeAPI(content, currentState);
+      console.log('API response received:', response);
 
       if (response.success && response.data) {
         const chatResponse: ChatResponse = response.data;
+        console.log('Chat response data:', chatResponse);
 
         // Create assistant message
         const assistantMessage: ChatMessage = {

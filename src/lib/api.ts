@@ -176,12 +176,15 @@ export class WfmApi {
       }
 
       const data = await response.json();
+      console.log("Raw API response data:", data);
 
       // For now, return a test response using the API data
       const testResponse: ChatResponse = {
         answer: `API Test Response: ${data.message || 'API is working'}\n\nReceived: ${userMessage}`,
         chartUpdate: 'none'
       };
+
+      console.log("Formatted test response:", testResponse);
 
       return {
         success: true,
