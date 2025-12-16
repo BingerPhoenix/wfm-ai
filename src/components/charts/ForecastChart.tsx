@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ComposedChart,
   Line,
@@ -10,291 +10,352 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  ReferenceLine
+  ReferenceLine,
+  ReferenceArea
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DataExtractors, SyntheticDataLoader } from '../../lib/dataLoader';
 import { useForecastStore } from '../../store/forecastStore';
-import { calculateStaffingNeeds } from '../../lib/calculations';
-import { DayOfWeek } from '../../lib/types';
-import type { StaffingRequirements } from '../../lib/types';
+import type { VolumeRecord } from '../../lib/dataLoader';
 
 interface ForecastChartProps {
   height?: number;
   className?: string;
+  selectedDate?: string;
+  showAnomalies?: boolean;
+  enableDateSelection?: boolean;
 }
 
 interface ChartDataPoint {
   hour: string;
-  traditionalFTE: number;
-  aiAwareFTE: number;
-  scenarioFTE?: number;
-  currentStaffed: number;
+  demand: number;
+  traditionalStaffing: number;
+  aiOptimizedStaffing: number;
+  actualStaffed: number;
   coverageGap: number;
   gapPositive?: number;
   gapNegative?: number;
+  volume: number;
+  isAnomaly?: boolean;
+  anomalyType?: string;
 }
 
-// Custom tooltip component
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload || !payload.length) return null;
+interface Anomaly {
+  date: string;
+  type: 'outage' | 'viral' | 'campaign' | 'bot_failure';
+  description: string;
+  impact: 'high' | 'medium' | 'low';
+}
 
-  const data = payload[0].payload;
+export const ForecastChart: React.FC<ForecastChartProps> = ({
+  height = 400,
+  className = '',
+  selectedDate = '2024-11-26', // Default to a Tuesday with gaps
+  showAnomalies = true,
+  enableDateSelection = false
+}) => {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(selectedDate);
 
-  return (
-    <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-lg">
-      <h3 className="text-white font-semibold mb-2">{label}</h3>
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between items-center space-x-4">
-          <span className="text-gray-300">Traditional (No AI):</span>
-          <span className="text-gray-400 font-mono">{data.traditionalFTE} agents</span>
-        </div>
-        <div className="flex justify-between items-center space-x-4">
-          <span className="text-blue-300">AI-Aware:</span>
-          <span className="text-blue-400 font-mono">{data.aiAwareFTE} agents</span>
-        </div>
-        {data.scenarioFTE !== undefined && (
-          <div className="flex justify-between items-center space-x-4">
-            <span className="text-purple-300">Scenario:</span>
-            <span className="text-purple-400 font-mono">{data.scenarioFTE} agents</span>
-          </div>
-        )}
-        <div className="flex justify-between items-center space-x-4">
-          <span className="text-green-300">Currently Scheduled:</span>
-          <span className="text-green-400 font-mono">{data.currentStaffed} agents</span>
-        </div>
-        <div className="border-t border-gray-600 pt-1 mt-2">
-          <div className="flex justify-between items-center space-x-4">
-            <span className="text-gray-300">Coverage Gap:</span>
-            <span className={`font-mono ${
-              data.coverageGap > 0 ? 'text-red-400' : data.coverageGap < 0 ? 'text-green-400' : 'text-gray-400'
-            }`}>
-              {data.coverageGap > 0 ? '+' : ''}{data.coverageGap} agents
+  const { deflectionParams } = useForecastStore();
+
+  // Load real synthetic data
+  useEffect(() => {
+    const loadChartData = async () => {
+      setIsLoading(true);
+      try {
+        const [volumeData, staffingAnalysis, anomalyData] = await Promise.all([
+          DataExtractors.getHourlyPattern(currentDate),
+          DataExtractors.getStaffingAnalysis(currentDate),
+          DataExtractors.getAnomalies()
+        ]);
+
+        // Check if current date has an anomaly
+        const dateAnomaly = anomalyData.find(a => a.date === currentDate);
+
+        const chartPoints: ChartDataPoint[] = staffingAnalysis.map((staff, index) => {
+          const volume = volumeData[index];
+          const totalVolume = volume ? volume.calls + volume.chats + volume.emails : 0;
+
+          // Calculate traditional staffing (no AI)
+          const traditionalDemand = Math.ceil(totalVolume / 6); // 6 contacts per agent per hour (no AI help)
+
+          // Calculate AI-optimized staffing
+          const deflectionRate = deflectionParams.currentRate || 0.27;
+          const effectiveVolume = totalVolume * (1 - deflectionRate);
+          const aiOptimizedDemand = Math.ceil(effectiveVolume / 8); // 8 contacts per agent with AI support
+
+          const coverageGap = staff.actual - aiOptimizedDemand;
+
+          return {
+            hour: staff.hour,
+            demand: aiOptimizedDemand,
+            traditionalStaffing: traditionalDemand,
+            aiOptimizedStaffing: aiOptimizedDemand,
+            actualStaffed: staff.actual,
+            coverageGap,
+            gapPositive: coverageGap > 0 ? coverageGap : 0,
+            gapNegative: coverageGap < 0 ? Math.abs(coverageGap) : 0,
+            volume: totalVolume,
+            isAnomaly: !!dateAnomaly,
+            anomalyType: dateAnomaly?.type
+          };
+        });
+
+        setChartData(chartPoints);
+        setAnomalies(anomalyData);
+      } catch (error) {
+        console.error('Failed to load chart data:', error);
+        // Fallback to empty data
+        setChartData([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadChartData();
+  }, [currentDate, deflectionParams.currentRate]);
+
+  // Memoized chart configuration
+  const chartConfig = useMemo(() => ({
+    margin: { top: 20, right: 30, left: 20, bottom: 5 },
+    bars: [
+      { dataKey: 'gapNegative', fill: '#EF4444', name: 'Understaffed', stackId: 'gap' },
+      { dataKey: 'gapPositive', fill: '#10B981', name: 'Overstaffed', stackId: 'gap' }
+    ],
+    lines: [
+      { dataKey: 'traditionalStaffing', stroke: '#6B7280', strokeWidth: 2, strokeDasharray: '5 5', name: 'Traditional (No AI)' },
+      { dataKey: 'aiOptimizedStaffing', stroke: '#3B82F6', strokeWidth: 3, name: 'AI-Optimized Target' },
+      { dataKey: 'actualStaffed', stroke: '#10B981', strokeWidth: 2, name: 'Actually Scheduled' }
+    ]
+  }), []);
+
+  // Custom tooltip component
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const data = payload[0].payload as ChartDataPoint;
+
+    return (
+      <div className="bg-gray-800 border border-gray-600 rounded-lg p-4 shadow-lg min-w-72">
+        <h3 className="text-white font-semibold mb-2 flex items-center">
+          {label}
+          {data.isAnomaly && (
+            <span className="ml-2 px-2 py-1 text-xs bg-red-500 text-white rounded">
+              {data.anomalyType?.toUpperCase()}
             </span>
+          )}
+        </h3>
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Contact Volume:</span>
+            <span className="text-white font-mono">{data.volume} contacts</span>
+          </div>
+          <div className="border-t border-gray-600 pt-2 space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-400">Traditional (No AI):</span>
+              <span className="text-gray-300 font-mono">{data.traditionalStaffing} agents</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-blue-300">AI-Optimized Target:</span>
+              <span className="text-blue-400 font-mono">{data.aiOptimizedStaffing} agents</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-green-300">Actually Scheduled:</span>
+              <span className="text-green-400 font-mono">{data.actualStaffed} agents</span>
+            </div>
+          </div>
+          <div className="border-t border-gray-600 pt-2">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300">Coverage Gap:</span>
+              <span className={`font-mono ${
+                data.coverageGap > 0
+                  ? 'text-green-400'
+                  : data.coverageGap < 0
+                    ? 'text-red-400'
+                    : 'text-gray-400'
+              }`}>
+                {data.coverageGap > 0 ? '+' : ''}{data.coverageGap} agents
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-// Day selector tabs
-const DayTabs: React.FC<{
-  selectedDay: DayOfWeek;
-  onDayChange: (day: DayOfWeek) => void;
-}> = ({ selectedDay, onDayChange }) => {
-  const days: { key: DayOfWeek; label: string }[] = [
-    { key: DayOfWeek.MONDAY, label: 'Mon' },
-    { key: DayOfWeek.TUESDAY, label: 'Tue' },
-    { key: DayOfWeek.WEDNESDAY, label: 'Wed' },
-    { key: DayOfWeek.THURSDAY, label: 'Thu' },
-    { key: DayOfWeek.FRIDAY, label: 'Fri' },
-    { key: DayOfWeek.SATURDAY, label: 'Sat' },
-    { key: DayOfWeek.SUNDAY, label: 'Sun' },
-  ];
+  // Date selection handler
+  const handleDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentDate(event.target.value);
+  };
 
-  return (
-    <div className="flex space-x-1 mb-6">
-      {days.map(({ key, label }) => (
-        <button
-          key={key}
-          onClick={() => onDayChange(key)}
-          className={`
-            px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200
-            ${selectedDay === key
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-            }
-          `}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-};
+  if (isLoading) {
+    return (
+      <div className={`${className} flex items-center justify-center`} style={{ height }}>
+        <div className="flex items-center space-x-2 text-gray-400">
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span>Loading real data...</span>
+        </div>
+      </div>
+    );
+  }
 
-export const ForecastChart: React.FC<ForecastChartProps & { isUpdating?: boolean }> = ({
-  height = 400,
-  className = '',
-  isUpdating = false
-}) => {
-  const {
-    selectedDay,
-    setSelectedDay,
-    getCurrentDayVolume,
-    deflectionParams,
-    simulationMode,
-    scenarioParams
-  } = useForecastStore();
-
-  // Get current day volume data
-  const currentDayVolume = getCurrentDayVolume();
-
-  // Calculate chart data
-  const chartData: ChartDataPoint[] = useMemo(() => {
-    return currentDayVolume.map(volume => {
-      const totalContacts = volume.calls + volume.chats + volume.emails;
-
-      // Calculate different staffing scenarios
-      const traditionalFTE = calculateStaffingNeeds(totalContacts, 0); // No AI
-      const aiAwareFTE = calculateStaffingNeeds(totalContacts, deflectionParams.currentRate);
-
-      // Scenario FTE if in scenario mode
-      let scenarioFTE: number | undefined;
-      if (simulationMode === 'scenario' && scenarioParams?.currentRate) {
-        scenarioFTE = calculateStaffingNeeds(totalContacts, scenarioParams.currentRate);
-      }
-
-      // Mock current staffing (would come from real staffing schedule)
-      const currentStaffed = Math.ceil(traditionalFTE * 0.85); // 85% coverage
-
-      // Calculate gap (positive = understaffed, negative = overstaffed)
-      const coverageGap = traditionalFTE - currentStaffed;
-
-      return {
-        hour: `${volume.hour.toString().padStart(2, '0')}:00`,
-        traditionalFTE,
-        aiAwareFTE,
-        scenarioFTE,
-        currentStaffed,
-        coverageGap,
-        gapPositive: coverageGap > 0 ? coverageGap : 0,
-        gapNegative: coverageGap < 0 ? Math.abs(coverageGap) : 0,
-      };
-    });
-  }, [currentDayVolume, deflectionParams.currentRate, simulationMode, scenarioParams]);
-
-  const isScenario = simulationMode === 'scenario';
+  const currentAnomaly = anomalies.find(a => a.date === currentDate);
 
   return (
-    <motion.div
-      className={`w-full ${className} ${isUpdating ? 'chart-flash' : ''}`}
-      animate={isUpdating ? { scale: [1, 1.01, 1] } : {}}
-      transition={{ duration: 0.6 }}
-    >
-      {/* Day Selector */}
-      <DayTabs selectedDay={selectedDay} onDayChange={setSelectedDay} />
-
-      {/* Chart Container */}
-      <div className="bg-white rounded-lg p-3 sm:p-4 md:p-6 border border-gray-200 data-transition">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Staffing Forecast - {selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)}
+    <div className={className}>
+      {/* Header with date selection */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-1">
+            Hourly Staffing Analysis
           </h3>
-
-          {/* Legend */}
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-0.5 bg-gray-400 border-dashed border-t-2"></div>
-              <span className="text-gray-600">Traditional Staffing</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-0.5 bg-blue-500"></div>
-              <span className="text-gray-600">AI-Optimized Staffing</span>
-            </div>
-            <AnimatePresence>
-              {isScenario && (
-                <motion.div
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  className="flex items-center space-x-2"
-                >
-                  <div className="w-3 h-0.5 bg-purple-500"></div>
-                  <span className="text-gray-600">Scenario</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-500 opacity-60 rounded-sm"></div>
-              <span className="text-gray-600">Current Schedule</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-red-500 opacity-60 rounded-sm"></div>
-              <span className="text-gray-600">Coverage Gap</span>
-            </div>
-          </div>
+          <p className="text-sm text-gray-400">
+            Real data for {new Date(currentDate).toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </p>
         </div>
 
-        {/* Chart */}
-        <ResponsiveContainer width="100%" height={height}>
-          <ComposedChart
-            data={chartData}
-            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+        {enableDateSelection && (
+          <div className="flex items-center space-x-2">
+            <label htmlFor="date-picker" className="text-sm text-gray-300">Date:</label>
+            <input
+              id="date-picker"
+              type="date"
+              value={currentDate}
+              onChange={handleDateChange}
+              min="2024-01-01"
+              max="2024-12-31"
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Anomaly alert */}
+      {currentAnomaly && showAnomalies && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-4 p-3 rounded-lg border-l-4 ${
+            currentAnomaly.impact === 'high'
+              ? 'bg-red-500/10 border-red-500 text-red-300'
+              : 'bg-yellow-500/10 border-yellow-500 text-yellow-300'
+          }`}
+        >
+          <div className="flex items-center">
+            <span className="font-semibold mr-2">⚠️ Anomaly Detected:</span>
+            {currentAnomaly.description}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Chart */}
+      <div style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={chartConfig.margin}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis
               dataKey="hour"
-              stroke="#6b7280"
-              fontSize={12}
+              stroke="#9CA3AF"
+              tick={{ fill: '#9CA3AF', fontSize: 12 }}
             />
             <YAxis
-              stroke="#6b7280"
-              fontSize={12}
-              label={{ value: 'Agents (FTE)', angle: -90, position: 'insideLeft' }}
+              stroke="#9CA3AF"
+              tick={{ fill: '#9CA3AF', fontSize: 12 }}
+              label={{ value: 'Agents (FTE)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
             />
+
             <Tooltip content={<CustomTooltip />} />
-
-            {/* Coverage gaps (red areas where understaffed) */}
-            <Area
-              dataKey="gapPositive"
-              stackId="gap"
-              stroke="none"
-              fill="#ef4444"
-              fillOpacity={0.3}
+            <Legend
+              wrapperStyle={{ color: '#9CA3AF' }}
             />
 
-            {/* Current staffing bars */}
-            <Bar
-              dataKey="currentStaffed"
-              fill="#10b981"
-              fillOpacity={0.6}
-              stroke="#10b981"
-              strokeWidth={1}
+            {/* Coverage gap bars */}
+            {chartConfig.bars.map(bar => (
+              <Bar
+                key={bar.dataKey}
+                dataKey={bar.dataKey}
+                fill={bar.fill}
+                name={bar.name}
+                stackId={bar.stackId}
+                radius={[2, 2, 0, 0]}
+              />
+            ))}
+
+            {/* Staffing lines */}
+            {chartConfig.lines.map(line => (
+              <Line
+                key={line.dataKey}
+                type="monotone"
+                dataKey={line.dataKey}
+                stroke={line.stroke}
+                strokeWidth={line.strokeWidth}
+                strokeDasharray={line.strokeDasharray}
+                name={line.name}
+                dot={{ r: 3, fill: line.stroke }}
+                connectNulls
+              />
+            ))}
+
+            {/* Reference line for optimal staffing */}
+            <ReferenceLine
+              y={0}
+              stroke="#6B7280"
+              strokeDasharray="2 2"
+              label={{ value: "Perfect Coverage", position: "left", fill: "#9CA3AF" }}
             />
-
-            {/* Traditional forecast line (gray dashed) */}
-            <Line
-              type="monotone"
-              dataKey="traditionalFTE"
-              stroke="#9ca3af"
-              strokeWidth={2}
-              strokeDasharray="6 4"
-              dot={false}
-              connectNulls
-            />
-
-            {/* AI-aware forecast line (blue solid) */}
-            <Line
-              type="monotone"
-              dataKey="aiAwareFTE"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
-              activeDot={{ r: 5, stroke: '#3b82f6', strokeWidth: 2 }}
-              connectNulls
-            />
-
-            {/* Scenario forecast line (purple solid) - only when scenario active */}
-            <AnimatePresence>
-              {isScenario && (
-                <Line
-                  type="monotone"
-                  dataKey="scenarioFTE"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#8b5cf6', strokeWidth: 2 }}
-                  connectNulls
-                />
-              )}
-            </AnimatePresence>
-
-            {/* Target line at 80% utilization */}
-            <ReferenceLine y={0} stroke="#e5e7eb" strokeDasharray="2 2" />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-    </motion.div>
+
+      {/* Chart insights */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm"
+      >
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="text-gray-400">Total Volume</div>
+          <div className="text-xl font-semibold text-white">
+            {chartData.reduce((sum, d) => sum + d.volume, 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-gray-500">contacts</div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="text-gray-400">Avg Coverage Gap</div>
+          <div className={`text-xl font-semibold ${
+            chartData.length > 0 && chartData.reduce((sum, d) => sum + d.coverageGap, 0) / chartData.length < 0
+              ? 'text-red-400'
+              : 'text-green-400'
+          }`}>
+            {chartData.length > 0
+              ? (chartData.reduce((sum, d) => sum + d.coverageGap, 0) / chartData.length).toFixed(1)
+              : '0.0'
+            }
+          </div>
+          <div className="text-xs text-gray-500">agents</div>
+        </div>
+
+        <div className="bg-gray-800/50 rounded-lg p-3">
+          <div className="text-gray-400">AI Efficiency</div>
+          <div className="text-xl font-semibold text-blue-400">
+            {chartData.length > 0
+              ? Math.round((1 - chartData.reduce((sum, d) => sum + d.aiOptimizedStaffing, 0) / chartData.reduce((sum, d) => sum + d.traditionalStaffing, 0)) * 100)
+              : 0
+            }%
+          </div>
+          <div className="text-xs text-gray-500">reduction vs traditional</div>
+        </div>
+      </motion.div>
+    </div>
   );
 };

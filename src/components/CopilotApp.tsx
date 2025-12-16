@@ -176,12 +176,14 @@ export const CopilotApp: React.FC = () => {
 
             {/* Forecast Chart */}
             <div className="flex-1 min-h-0">
-              <div className="bg-white rounded-lg p-4 h-full">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                  Volume Forecast & Staffing
-                </h3>
+              <div className="rounded-lg p-4 h-full">
                 <div className="h-64">
-                  <ForecastChart height={250} />
+                  <ForecastChart
+                    height={250}
+                    enableDateSelection={true}
+                    showAnomalies={true}
+                    className="bg-gray-900 p-4 rounded-lg"
+                  />
                 </div>
               </div>
             </div>

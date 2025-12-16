@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useForecastStore, useSummaryMetrics } from '../../store/forecastStore';
 import { calculateStaffingNeeds } from '../../lib/calculations';
 import { useCountUp } from '../../hooks/useCountUp';
+import { StatisticsGenerator } from '../../lib/dataLoader';
 
 interface MetricCardProps {
   title: string;
@@ -166,6 +167,26 @@ export const MetricsCards: React.FC = () => {
 
   const summaryMetrics = useSummaryMetrics();
   const [prevValues, setPrevValues] = useState<any>(null);
+  const [realInsights, setRealInsights] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load real insights from synthetic data
+  useEffect(() => {
+    const loadInsights = async () => {
+      setIsLoading(true);
+      try {
+        const insights = await StatisticsGenerator.generateInsights();
+        setRealInsights(insights);
+      } catch (error) {
+        console.error('Failed to load real insights:', error);
+        setRealInsights(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInsights();
+  }, []);
 
   // Track value changes for animations
   useEffect(() => {
@@ -179,31 +200,70 @@ export const MetricsCards: React.FC = () => {
     });
   }, [deflectionParams.currentRate, summaryMetrics.fteSavings, summaryMetrics.totalAiAwareFTE]);
 
-  // Calculate current day average SLA
-  const currentDayVolume = getCurrentDayVolume();
-  const avgSLA = currentDayVolume.length > 0
-    ? currentDayVolume.reduce((sum, v) => {
-        const totalContacts = v.calls + v.chats + v.emails;
-        const traditionalFTE = calculateStaffingNeeds(totalContacts, 0);
-        const currentStaffed = Math.ceil(traditionalFTE * 0.9); // Mock current staffing
-        const gap = traditionalFTE - currentStaffed;
-        let sla = 0.82; // Base SLA
-        if (gap > 0) sla = Math.max(0.4, 0.82 - (gap * 0.05));
-        else if (gap < 0) sla = Math.min(0.95, 0.82 + (Math.abs(gap) * 0.02));
-        return sum + sla;
-      }, 0) / currentDayVolume.length
-    : 0.82;
+  // Use real data if available, fallback to calculated values
+  const getRealMetrics = () => {
+    if (realInsights && !isLoading) {
+      return {
+        deflectionRate: realInsights.deflectionRate,
+        totalContacts: realInsights.totalContacts,
+        avgDailyVolume: realInsights.avgDailyVolume,
+        slaPerformance: realInsights.slaPerformance,
+        costSavings: realInsights.costSavings,
+        currentFTE: 94 // From synthetic data - 94 FTE agents
+      };
+    }
+
+    // Fallback to calculated values
+    const currentDayVolume = getCurrentDayVolume();
+    const avgSLA = currentDayVolume.length > 0
+      ? currentDayVolume.reduce((sum, v) => {
+          const totalContacts = v.calls + v.chats + v.emails;
+          const traditionalFTE = calculateStaffingNeeds(totalContacts, 0);
+          const currentStaffed = Math.ceil(traditionalFTE * 0.9);
+          const gap = traditionalFTE - currentStaffed;
+          let sla = 0.82;
+          if (gap > 0) sla = Math.max(0.4, 0.82 - (gap * 0.05));
+          else if (gap < 0) sla = Math.min(0.95, 0.82 + (Math.abs(gap) * 0.02));
+          return sum + sla;
+        }, 0) / currentDayVolume.length
+      : 0.82;
+
+    return {
+      deflectionRate: deflectionParams.currentRate,
+      totalContacts: 782456,
+      avgDailyVolume: 2141,
+      slaPerformance: avgSLA,
+      costSavings: 1300000,
+      currentFTE: summaryMetrics.totalAiAwareFTE
+    };
+  };
+
+  const metrics = getRealMetrics();
 
   const isScenario = simulationMode === 'scenario';
 
-  // Calculate scenario values
-  const baselineDeflection = 0.25; // 25% baseline
-  const scenarioDeflection = scenarioParams?.currentRate || deflectionParams.currentRate;
+  // Calculate scenario values using real metrics
+  const baselineDeflection = 0.18; // Starting deflection from synthetic data
+  const scenarioDeflection = scenarioParams?.currentRate || metrics.deflectionRate;
 
-  const scenarioFTE = isScenario ? summaryMetrics.totalAiAwareFTE : null;
-  const baselineFTE = summaryMetrics.totalTraditionalFTE;
+  const scenarioFTE = isScenario ? Math.round(metrics.currentFTE * (1 - (scenarioDeflection - metrics.deflectionRate) * 2)) : null;
+  const baselineFTE = Math.round(metrics.currentFTE / (1 - baselineDeflection) * (1 - metrics.deflectionRate));
 
-  const scenarioSLA = isScenario ? Math.min(0.95, avgSLA + 0.05) : null;
+  const scenarioSLA = isScenario ? Math.min(0.95, metrics.slaPerformance + 0.05) : null;
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-gray-800 border border-gray-700 rounded-xl p-6 animate-pulse">
+            <div className="h-4 bg-gray-700 rounded mb-4"></div>
+            <div className="h-8 bg-gray-700 rounded"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
@@ -211,47 +271,47 @@ export const MetricsCards: React.FC = () => {
       <MetricCard
         title="AI Deflection Rate (%)"
         icon="📈"
-        currentValue={`${(deflectionParams.currentRate * 100).toFixed(1)}%`}
+        currentValue={`${(metrics.deflectionRate * 100).toFixed(1)}%`}
         scenarioValue={isScenario ? `${(scenarioDeflection * 100).toFixed(1)}%` : undefined}
         isScenario={isScenario}
         changeType={
-          isScenario && scenarioDeflection > baselineDeflection
+          isScenario && scenarioDeflection > metrics.deflectionRate
             ? 'improvement'
-            : isScenario && scenarioDeflection < baselineDeflection
+            : isScenario && scenarioDeflection < metrics.deflectionRate
             ? 'decline'
             : 'neutral'
         }
         animated={true}
       />
 
-      {/* Card 2 - Staffing Required */}
+      {/* Card 2 - Current Staffing */}
       <MetricCard
-        title="Required FTE (Full-Time Equivalent)"
+        title="Current FTE Agents"
         icon="👥"
-        currentValue={`${summaryMetrics.totalAiAwareFTE} agents`}
+        currentValue={`${metrics.currentFTE} agents`}
         scenarioValue={isScenario ? `${scenarioFTE} agents` : undefined}
         isScenario={isScenario}
         changeType={
-          isScenario && scenarioFTE && scenarioFTE < baselineFTE
+          isScenario && scenarioFTE && scenarioFTE < metrics.currentFTE
             ? 'improvement'
-            : isScenario && scenarioFTE && scenarioFTE > baselineFTE
+            : isScenario && scenarioFTE && scenarioFTE > metrics.currentFTE
             ? 'decline'
             : 'neutral'
         }
         animated={true}
       />
 
-      {/* Card 3 - SLA Forecast */}
+      {/* Card 3 - SLA Performance */}
       <MetricCard
-        title="SLA Performance (Service Level Agreement %)"
+        title="YTD SLA Performance (%)"
         icon="🎯"
-        currentValue={`${(avgSLA * 100).toFixed(1)}%`}
+        currentValue={`${(metrics.slaPerformance * 100).toFixed(1)}%`}
         scenarioValue={isScenario ? `${(scenarioSLA! * 100).toFixed(1)}%` : undefined}
         isScenario={isScenario}
         changeType={
-          isScenario && scenarioSLA && scenarioSLA > avgSLA
+          isScenario && scenarioSLA && scenarioSLA > metrics.slaPerformance
             ? 'improvement'
-            : isScenario && scenarioSLA && scenarioSLA < avgSLA
+            : isScenario && scenarioSLA && scenarioSLA < metrics.slaPerformance
             ? 'decline'
             : 'neutral'
         }
