@@ -155,15 +155,18 @@ export class WfmApi {
       console.log("Base URL:", this.baseUrl);
       console.log("Full URL resolved to:", apiUrl);
 
-      // Call minimal API endpoint for testing
+      // Call server-side API route (enhanced system prompt built server-side)
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: userMessage,
-          context: context
+          messages: [{
+            role: 'user',
+            content: fullPrompt
+          }]
+          // system prompt now built server-side with rich data
         })
       });
 
@@ -178,17 +181,23 @@ export class WfmApi {
       const data = await response.json();
       console.log("Raw API response data:", data);
 
-      // For now, return a test response using the API data
-      const testResponse: ChatResponse = {
-        answer: `API Test Response: ${data.message || 'API is working'}\n\nReceived: ${userMessage}`,
-        chartUpdate: 'none'
-      };
+      // Try to parse JSON response from Claude
+      let parsedResponse: ChatResponse;
+      try {
+        parsedResponse = JSON.parse(data.content);
+      } catch {
+        // Fallback if response isn't valid JSON
+        parsedResponse = {
+          answer: data.content,
+          chartUpdate: 'none'
+        };
+      }
 
-      console.log("Formatted test response:", testResponse);
+      console.log("Formatted chat response:", parsedResponse);
 
       return {
         success: true,
-        data: testResponse
+        data: parsedResponse
       };
 
     } catch (error) {
