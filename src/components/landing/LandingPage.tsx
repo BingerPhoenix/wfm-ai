@@ -158,7 +158,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
         transition={{ delay: 1.2, duration: 0.6 }}
         className="border-t border-gray-800 py-8 text-center text-gray-400"
       >
-        <p>Built by Shubbankar Sharma | Prototype for UJET</p>
+        <p>Built by Shubbankar Singh | Prototype for UJET</p>
       </motion.footer>
 
       {/* Feature Modal */}
