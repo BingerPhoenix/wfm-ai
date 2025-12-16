@@ -323,9 +323,9 @@ export default async function handler(
 
     console.log('Calling Claude API with valid model...');
 
-    // Call Claude API with VALID model name
+    // Call Claude API with CURRENT VALID model name
     const response = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20240620', // ✅ FIXED: Using valid model instead of claude-sonnet-4-20250514
+      model: 'claude-sonnet-4-5', // ✅ FIXED: Using current valid model (Claude Sonnet 4.5)
       max_tokens: 2000,
       temperature: 0.7,
       system: systemPrompt,
