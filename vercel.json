@@ -8,9 +8,6 @@
       "destination": "/index.html"
     }
   ],
-  "env": {
-    "ANTHROPIC_API_KEY": "@anthropic_api_key"
-  },
   "functions": {
     "api/chat.ts": {
       "maxDuration": 30
