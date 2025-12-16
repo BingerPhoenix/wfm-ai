@@ -1,0 +1,40 @@
+{
+  "name": "wfm-ai",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.production.json && vite build",
+    "build:strict": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "vercel-build": "npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "framer-motion": "^12.23.26",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.10.1",
+    "recharts": "^3.6.0",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vercel/node": "^5.5.15",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
+  }
+}
